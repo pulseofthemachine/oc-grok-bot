@@ -47,8 +47,8 @@ A high-performance, modular TypeScript bot framework for **OpenChat** on the Int
 
 ### 2. Clone & Install
 ```bash
-git clone https://github.com/your-username/openchat-grok-bot.git
-cd openchat-grok-bot
+git clone https://github.com/pulseofthemachine/oc-grok-bot.git
+cd oc-grok-bot
 npm install
 ```
 
