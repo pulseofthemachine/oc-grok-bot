@@ -1,6 +1,6 @@
-import { Command } from '../command-registry';
+import { Command } from '../engine/command-registry';
 import { Permissions } from '@open-ic/openchat-botclient-ts';
-import { historyManager } from '../history-manager';
+import { historyManager } from '../engine/history-manager';
 
 const ADMIN_ID = "6vxrs-taaaa-aaaar-a2o3q-cai"; 
 

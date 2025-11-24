@@ -19,6 +19,7 @@ export function startBotServer(port: number, registry: CommandRegistry) {
     try {
       const ctx = new BotContext(req, res, botFactory);
       
+      await ctx.init(); 
       // Route the context to the correct command
       await registry.execute(ctx);
 

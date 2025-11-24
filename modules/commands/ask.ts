@@ -1,4 +1,4 @@
-import { Command } from '../command-registry';
+import { Command } from '../engine/command-registry';
 import { Permissions } from '@open-ic/openchat-botclient-ts';
 
 export const AskCommand: Command = {
@@ -18,7 +18,9 @@ export const AskCommand: Command = {
     // ONE LINER!
     await ctx.chatWithAI({
       contextKey: 'default',
-      userPrompt: ctx.getString("prompt")
+      userPrompt: ctx.getString("prompt"),
+      temperature: 1.0,
+      reasoningEnabled: true
     });
   }
 };

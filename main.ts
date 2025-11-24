@@ -1,5 +1,5 @@
-import { startBotServer } from './modules/server-runner';
-import { CommandRegistry } from './modules/command-registry';
+import { startBotServer } from './modules/engine/server-runner';
+import { CommandRegistry } from './modules/engine/command-registry';
 import { loadCommands } from './modules/loader';
 
 (async () => {

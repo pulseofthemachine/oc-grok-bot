@@ -1,6 +1,6 @@
-import { Command } from '../command-registry';
+import { Command } from '../engine/command-registry';
 import { Permissions } from '@open-ic/openchat-botclient-ts';
-import { completeChat, ChatMessage } from '../openrouter-client';
+import { completeChat, ChatMessage } from '../engine/openrouter-client';
 
 export const PoemCommand: Command = {
   name: "poem",

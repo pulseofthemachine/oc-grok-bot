@@ -2,7 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import { ChatMessage } from './openrouter-client';
 
-const DEFAULT_SYSTEM_PROMPT = `You are a helpful assistant.`;
+// CLEANED UP: Now just the personality, no technical instructions
+const DEFAULT_SYSTEM_PROMPT = "You are a helpful assistant.";
 
 // Inner structure for a single context
 interface ContextData {
@@ -18,7 +19,6 @@ interface SessionData {
 }
 
 export class HistoryManager {
-  // Key = StorageKey (User ID or Group ID)
   private sessions = new Map<string, SessionData>();
   private MAX_HISTORY = 100;
   private DATA_DIR = path.resolve('./data');
@@ -96,7 +96,6 @@ export class HistoryManager {
 
   // --- PUBLIC API ---
 
-  // Note: 'key' can be a UserID OR a GroupID
   getHistory(key: string, contextKey: string): ChatMessage[] {
     return this.getContext(key, contextKey).history;
   }

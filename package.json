@@ -10,7 +10,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@open-ic/openchat-botclient-ts": "^1.0.61",
+    "@open-ic/openchat-botclient-ts": "^1.0.62",
     "@types/node": "^24.10.1",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
