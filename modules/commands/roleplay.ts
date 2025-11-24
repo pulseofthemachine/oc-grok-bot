@@ -28,7 +28,7 @@ export const RoleplayCommand: Command = {
       contextKey: 'roleplay',
       userPrompt: ctx.getString("action"),
       systemPrompt: DM_PROMPT,
-      temperature: 0.8
+      temperature: 1.0 //might need some further adjustment for better creative writing
     });
   }
 };
