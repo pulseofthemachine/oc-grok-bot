@@ -63,8 +63,7 @@ export class BotContext {
   }) {
     const { contextKey, userPrompt, systemPrompt, model, temperature } = options;
 
-    // 1. Save User Input to SHARED history
-    // We prepend the User ID so the bot knows who is talking in the group
+    // 1. Save User Input
     const contentToSave = this.isGroup 
       ? `[User ${this.userId}]: ${userPrompt}` 
       : userPrompt;
@@ -72,7 +71,6 @@ export class BotContext {
     historyManager.addMessage(this.storageKey, contextKey, 'user', contentToSave);
 
     // 2. Build Context
-    // Load from the SHARED storage key
     const finalSystemPrompt = systemPrompt || historyManager.getSystemPrompt(this.storageKey, contextKey);
     
     const contextMessages: ChatMessage[] = [
@@ -90,9 +88,17 @@ export class BotContext {
 
     const finalResponse = response || "No response.";
 
-    // 4. Save & Reply
+    // 4. Save PURE response to Memory
+    // We save the clean AI text to the JSON file so the AI context doesn't get messy
     historyManager.addMessage(this.storageKey, contextKey, 'assistant', finalResponse);
-    await this.reply(finalResponse);
+
+    // 5. Construct Display Message
+    // We prepend the user's prompt using Markdown Blockquote syntax (>)
+    // This makes it look distinct from the AI's answer
+    const displayMessage = `> ${userPrompt}\n\n${finalResponse}`;
+
+    // 6. Reply (Sends Display Message to Blockchain/UI)
+    await this.reply(displayMessage);
   }
 
   async reply(text: string) {
