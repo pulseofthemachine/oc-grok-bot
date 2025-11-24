@@ -16,24 +16,21 @@ A high-performance, modular TypeScript bot framework for **OpenChat** on the Int
 ## 📂 Project Structure
 
 ```text
-├── main.ts                  # Entry point (Initializes Registry & Server)
+├── main.ts                  # Entry point
 ├── modules/
-│   ├── commands/            # ⚡️ DROP NEW COMMANDS HERE
+│   ├── commands/            # ⚡️ THE PLUGINS (Drop new commands here)
 │   │   ├── ask.ts           # Standard AI Chat
 │   │   ├── roleplay.ts      # RPG Context Example
 │   │   ├── personality.ts   # System Prompt Manager
-│   │   └── clearchat.ts     # Chat history wiper (ask)
-│   │   └── clearstory.ts    # Story history wiper (roleplay)
-│   │   └── poem.ts          # Write a poem
-│   ├── bot-context.ts       # Abstraction Layer (The "Magic" Helper)
-│   ├── command-registry.ts  # Command Router
-│   ├── config.ts            # Env & Key Loader
-│   ├── history-manager.ts   # JSON File Database Engine
-│   ├── loader.ts            # Auto-loader for command files
-│   ├── openrouter-client.ts # AI API Client
-│   └── server-runner.ts     # Express Server & Middleware
+│   │   └── ...              # (poem, clearchat, etc.)
+│   ├── engine/              # ⚙️ THE CORE
+│   │   ├── bot-context.ts   # The "God Object" (State, AI, Blockchain)
+│   │   ├── history-manager.ts # JSON Database Engine
+│   │   └── ...              # (registry, config, server-runner)
+│   ├── helpers/             # 🛠 UTILITIES (Prompt building, formatting)
+│   └── loader.ts            # Auto-loader
 ├── data/                    # User history JSON files (Auto-generated)
-└── .env                     # API Keys
+└── .env                     # API Keys                   # API Keys
 ```
 
 ---
@@ -43,7 +40,7 @@ A high-performance, modular TypeScript bot framework for **OpenChat** on the Int
 ### 1. Prerequisites
 *   Node.js v20+
 *   An OpenRouter API Key
-*   An OpenChat account (to register the bot)
+*   Run OpenChat locally or have an OpenChat account (to register and interact with the bot)
 
 ### 2. Clone & Install
 ```bash
@@ -52,21 +49,8 @@ cd oc-grok-bot
 npm install
 ```
 
-### 3. Key Configuration
-You need two PEM files in the root directory. **Do not commit these to Git.**
-
-1.  **`private_key.pem`**: Generate this using OpenSSL.
-    ```bash
-    openssl ecparam -genkey -name secp256k1 -out private_key.pem
-    ```
-    *You will need the Principal ID of this key to register the bot. Use `dfx identity get-principal` or a helper script to find it.*
-
-2.  **`oc_public.pem`**: Get this from OpenChat.
-    *   Go to **OpenChat** -> **Profile** -> **Advanced** -> **Bot Client Data**.
-    *   Copy the Public Key and paste it into a file named `oc_public.pem`.
-
-### 4. Environment Variables
-Create a `.env` file in the root:
+### 3. Environment Variables
+Create a `.env` file in the root and fill it in using .env.example as a template:
 ```env
 # OpenRouter API Key
 OPENROUTER_API_KEY=sk-or-v1-your-key-here
@@ -76,12 +60,12 @@ IC_HOST=https://ic0.app
 STORAGE_INDEX_CANISTER=...
 ```
 
-### 5. Run Locally
-Start the server:
+### 4. Run Locally
+Start the server for local testing:
 ```bash
 npx tsx main.ts
 ```
-Expose your local server via Ngrok (OpenChat requires HTTPS):
+Expose your local server via Ngrok for testing on the live platform (OpenChat requires HTTPS):
 ```bash
 ngrok http 3000
 ```
