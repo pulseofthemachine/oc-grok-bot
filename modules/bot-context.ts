@@ -95,7 +95,7 @@ export class BotContext {
     // 5. Construct Display Message
     // We prepend the user's prompt using Markdown Blockquote syntax (>)
     // This makes it look distinct from the AI's answer
-    const displayMessage = `> ${userPrompt}\n\n${finalResponse}`;
+    const displayMessage = "```\nUser Asked: " + userPrompt + "\n```\n" + finalResponse;
 
     // 6. Reply (Sends Display Message to Blockchain/UI)
     await this.reply(displayMessage);
