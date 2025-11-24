@@ -5,6 +5,7 @@ export const AskCommand: Command = {
   name: "askgrok",
   description: "Chat with Grok",
   permissions: Permissions.encodePermissions({ chat: [], community: [], message: ["Text"] }),
+  supportsDirectMessage: true,
   params: [
     {
       name: "prompt",

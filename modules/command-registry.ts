@@ -4,9 +4,12 @@ import { BotContext } from './bot-context';
 export interface Command {
   name: string;
   description: string;
-  permissions: any; // Bitmasks from Permissions helper
-  params: any[];    // Array of param definitions
-  execute: (ctx: BotContext) => Promise<void>; // The logic function
+  permissions: any;
+  params: any[];
+  execute: (ctx: BotContext) => Promise<void>;
+  
+  // New Optional Field
+  supportsDirectMessage?: boolean; 
 }
 
 export class CommandRegistry {
@@ -26,7 +29,8 @@ export class CommandRegistry {
         description: cmd.description,
         permissions: cmd.permissions,
         params: cmd.params,
-        default_role: "Participant"
+        default_role: "Participant",
+        direct_messages: cmd.supportsDirectMessage || false 
       }))
     };
   }

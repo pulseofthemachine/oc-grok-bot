@@ -4,16 +4,24 @@ import { success } from './success';
 import { historyManager } from './history-manager';
 import { completeChat, ChatMessage } from './openrouter-client';
 
+// --- THE GLOBAL INSTRUCTION ---
+// This is appended to EVERY system prompt (Default, RPG, Custom, etc.)
+const USER_ID_INSTRUCTIONS = `
+[SYSTEM METADATA]: Users are identified by tags like "@UserId(xxxxx-...)". 
+When referring to a specific user/character, use their tag exactly as it appears. 
+The interface will render this tag as their real display name.`;
+
 export class BotContext {
   public client: any;
   public userId: string;
-  public storageKey: string; // <--- The ID used for the database (Group or User)
+  public storageKey: string;
   public isGroup: boolean;
   public token: string;
   public commandName: string;
   private res: Response;
 
   constructor(req: Request, res: Response, factory: BotClientFactory) {
+    // ... (Constructor remains unchanged) ...
     this.res = res;
     const token = req.headers['x-oc-jwt'] as string;
 
@@ -23,19 +31,16 @@ export class BotContext {
     const base64Payload = token.split('.')[1];
     const payload = JSON.parse(Buffer.from(base64Payload, 'base64').toString());
     
-    // 1. Identify User
     this.userId = payload.command?.initiator || "Unknown";
     this.commandName = payload.command?.name;
 
-    // 2. Identify Context (Group vs Direct)
-    // The payload structure for groups is: scope.Chat.chat.Group
     const scope = payload.scope;
     const groupContext = scope?.Chat?.chat?.Group;
     const channelContext = scope?.Chat?.chat?.Channel;
 
     if (groupContext) {
       this.isGroup = true;
-      this.storageKey = groupContext; // Use Group ID as DB Key
+      this.storageKey = groupContext;
       console.log(`Context: Group (${this.storageKey})`);
     } else if (channelContext) {
       this.isGroup = true;
@@ -43,7 +48,7 @@ export class BotContext {
       console.log(`Context: Channel (${this.storageKey})`);
     } else {
       this.isGroup = false;
-      this.storageKey = this.userId; // Use User ID as DB Key
+      this.storageKey = this.userId;
       console.log(`Context: Direct Message (${this.storageKey})`);
     }
   }
@@ -63,15 +68,17 @@ export class BotContext {
   }) {
     const { contextKey, userPrompt, systemPrompt, model, temperature } = options;
 
-    // 1. Save User Input
-    const contentToSave = this.isGroup 
-      ? `[User ${this.userId}]: ${userPrompt}` 
-      : userPrompt;
+    const userTag = `@UserId(${this.userId})`;
+    const contentToSave = `${userTag}: ${userPrompt}`;
 
     historyManager.addMessage(this.storageKey, contextKey, 'user', contentToSave);
 
-    // 2. Build Context
-    const finalSystemPrompt = systemPrompt || historyManager.getSystemPrompt(this.storageKey, contextKey);
+    // --- THE FIX ---
+    // 1. Get the base personality (Default OR Roleplay OR Custom)
+    let baseSystemPrompt = systemPrompt || historyManager.getSystemPrompt(this.storageKey, contextKey);
+    
+    // 2. Append the invisible instruction
+    const finalSystemPrompt = baseSystemPrompt + USER_ID_INSTRUCTIONS;
     
     const contextMessages: ChatMessage[] = [
       { role: 'system', content: finalSystemPrompt }
@@ -80,7 +87,6 @@ export class BotContext {
     const history = historyManager.getHistory(this.storageKey, contextKey);
     contextMessages.push(...history);
 
-    // 3. Call AI
     const response = await completeChat(contextMessages, { 
       model: model || "x-ai/grok-4.1-fast:free",
       temperature: temperature || 0.7
@@ -88,21 +94,24 @@ export class BotContext {
 
     const finalResponse = response || "No response.";
 
-    // 4. Save PURE response to Memory
-    // We save the clean AI text to the JSON file so the AI context doesn't get messy
     historyManager.addMessage(this.storageKey, contextKey, 'assistant', finalResponse);
 
-    // 5. Construct Display Message
-    // We prepend the user's prompt using Markdown Blockquote syntax (>)
-    // This makes it look distinct from the AI's answer
-    const displayMessage = "```\nUser Asked: " + userPrompt + "\n```\n" + finalResponse;
+    const senderTag = `@UserId(${this.userId})`; 
+    let displayMessage = "";
 
-    // 6. Reply (Sends Display Message to Blockchain/UI)
+    if (this.isGroup) {
+        // Group: Code Block with Name
+        displayMessage = "```\n" + `${senderTag}: ${userPrompt}` + "\n```\n" + finalResponse;
+    } else {
+        // DM: Blockquote
+        displayMessage = `> ${userPrompt}\n\n${finalResponse}`;
+    }
+
     await this.reply(displayMessage);
   }
 
   async reply(text: string) {
-    // ... (Your existing reply logic with monkey patch) ...
+    // ... (Reply logic remains unchanged) ...
     console.log("Saving to Blockchain...");
     const message = await this.client.createTextMessage(text);
     const originalToInputArgs = message.toInputArgs.bind(message);
@@ -113,6 +122,7 @@ export class BotContext {
 
     try {
       await this.client.sendMessage(message);
+      console.log("Saved successfully.");
       if (!this.res.headersSent) this.res.status(200).json(success(message));
     } catch (e: any) {
       console.error("BLOCKCHAIN ERROR:", e);

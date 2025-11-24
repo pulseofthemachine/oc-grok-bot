@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { ChatMessage } from './openrouter-client';
 
-const DEFAULT_SYSTEM_PROMPT = "You are a helpful assistant.";
+const DEFAULT_SYSTEM_PROMPT = `You are a helpful assistant.`;
 
 // Inner structure for a single context
 interface ContextData {
