@@ -5,13 +5,13 @@ import { historyManager } from './history-manager';
 import { completeChat, ChatMessage } from './openrouter-client';
 import { buildSystemPrompt } from '../helpers/prompt-builder';
 import { formatDisplayMessage } from '../helpers/message-formatter';
-import sharp from 'sharp';
+import { downloadAndResizeImage } from '../helpers/image-processor';
+import { sendToOpenChat } from './openchat-sender';
 
 export class BotContext {
   public client: any;
   public userId: string;
   
-  // User Details
   public username: string = "Unknown";
   public displayName: string = "User";
   public membershipTier: "Standard" | "Diamond" | "Lifetime" = "Standard";
@@ -47,7 +47,6 @@ export class BotContext {
     }
   }
 
-  // --- ASYNC INIT ---
   async init() {
     try {
         const resp = await this.client.userSummary();
@@ -73,7 +72,7 @@ export class BotContext {
     return val;
   }
 
-  // --- TEXT CHAT HELPER ---
+  // --- CHAT LOGIC ---
   async chatWithAI(options: {
     contextKey: string;
     userPrompt: string;
@@ -85,10 +84,8 @@ export class BotContext {
   }) {
     const { contextKey, userPrompt, model, temperature, reasoningEnabled, tools } = options;
 
-    // 1. HISTORY: Save Input
     historyManager.addMessage(this.storageKey, contextKey, 'user', `${this.displayName}: ${userPrompt}`);
 
-    // 2. BUILD PROMPT
     const finalSystemPrompt = buildSystemPrompt(
       this.userId, 
       this.storageKey, 
@@ -99,14 +96,11 @@ export class BotContext {
       options.systemPrompt
     );
     
-    // 3. PREPARE CONTEXT
     const contextMessages: ChatMessage[] = [{ role: 'system', content: finalSystemPrompt }];
     contextMessages.push(...historyManager.getHistory(this.storageKey, contextKey));
 
-    // Debug Log
     console.log(`\n[AI Request] User: ${this.displayName} (${this.membershipTier}) | Prompt: ${userPrompt.substring(0,50)}...`);
 
-    // 4. CALL AI
     const response = await completeChat(contextMessages, { 
       model: model || "x-ai/grok-4.1-fast:free",
       temperature: temperature || 0.7,
@@ -114,7 +108,6 @@ export class BotContext {
       tools: tools
     });
 
-    // Handle potential image response (legacy check) or null
     let textResponse = "No response.";
     if (typeof response === 'string') {
         textResponse = response;
@@ -122,28 +115,22 @@ export class BotContext {
         textResponse = "[Image Generated - Use /imagine to view images]";
     }
 
-    // 5. HISTORY: Save Output
     historyManager.addMessage(this.storageKey, contextKey, 'assistant', textResponse);
 
-    // 6. UI: Display
     const displayMessage = formatDisplayMessage(this.userId, userPrompt, textResponse, this.isGroup);
 
     await this.reply(displayMessage);
   }
 
-  // --- TEXT REPLY HELPER ---
+  // --- REPLY LOGIC ---
   async reply(text: string) {
+    console.log("Saving to Blockchain...");
     const message = await this.client.createTextMessage(text);
     
-    // Monkey Patch: Inject auth_token
-    const originalToInputArgs = message.toInputArgs.bind(message);
-    message.toInputArgs = (ctx: any) => {
-        const standardArgs = originalToInputArgs(ctx);
-        return { ...standardArgs, auth_token: this.token };
-    };
-
     try {
-      await this.client.sendMessage(message);
+      // Delegate to Sender Engine
+      await sendToOpenChat(this.client, this.token, message);
+      console.log("Saved successfully.");
       if (!this.res.headersSent) this.res.status(200).json(success(message));
     } catch (e: any) {
       console.error("BLOCKCHAIN ERROR:", e);
@@ -151,56 +138,16 @@ export class BotContext {
     }
   }
 
-  // --- IMAGE PROCESSING HELPER ---
-  async processImage(imageUrl: string): Promise<{ data: Uint8Array, mime: string } | null> {
-    try {
-      let buffer: Buffer;
-
-      // Handle Base64 Data URL
-      if (imageUrl.startsWith('data:')) {
-        const matches = imageUrl.match(/^data:(.+);base64,(.+)$/);
-        if (!matches) return null;
-        buffer = Buffer.from(matches[2], 'base64');
-      } 
-      // Handle HTTP URL
-      else {
-        const response = await fetch(imageUrl);
-        if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
-        const arrayBuffer = await response.arrayBuffer();
-        buffer = Buffer.from(arrayBuffer);
-      }
-
-      // Resize with Sharp (Crucial for OpenChat limits)
-      const resizedBuffer = await sharp(buffer)
-        .resize(1024, 559, { 
-          fit: 'inside',
-          withoutEnlargement: true
-        })
-        .toFormat('png')
-        .toBuffer();
-
-      return {
-        data: new Uint8Array(resizedBuffer),
-        mime: 'image/png'
-      };
-
-    } catch (e) {
-      console.error("Image Processing Error:", e);
-      return null;
-    }
-  }
-
-  // --- IMAGE REPLY HELPER ---
   async replyWithImage(imageUrl: string, caption?: string) {
     if (!imageUrl) {
-        console.error("replyWithImage called with empty URL");
         await this.reply("Error: No image URL provided.");
         return;
     }
 
     console.log("Processing Image URL:", imageUrl.substring(0, 50) + "...");
 
-    const processed = await this.processImage(imageUrl);
+    // Delegate to Image Processor Helper
+    const processed = await downloadAndResizeImage(imageUrl);
     
     if (!processed) {
         await this.reply("Error: Failed to process the generated image.");
@@ -215,16 +162,11 @@ export class BotContext {
         caption
     );
 
-    // Monkey Patch
-    const originalToInputArgs = message.toInputArgs.bind(message);
-    message.toInputArgs = (ctx: any) => {
-        return { ...originalToInputArgs(ctx), auth_token: this.token };
-    };
-
     try {
-      await this.client.sendMessage(message);
-      if (!this.res.headersSent) this.res.status(200).json(success(message));
+      // Delegate to Sender Engine
+      await sendToOpenChat(this.client, this.token, message);
       console.log("Image Sent Successfully.");
+      if (!this.res.headersSent) this.res.status(200).json(success(message));
     } catch (e) {
       console.error("Failed to send image:", e);
     }
