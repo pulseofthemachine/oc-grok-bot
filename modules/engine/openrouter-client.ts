@@ -10,33 +10,42 @@ export interface ChatOptions {
   model?: string;
   temperature?: number;
   reasoningEnabled?: boolean;
+  tools?: any[];
+  modalities?: string[];
 }
 
+// Flexible interface to catch various API response formats
+export interface ImageResponse {
+  url?: string;
+  image_url?: { url: string };
+  b64_json?: string;
+  detail?: string;
+}
+
+// Return type can now be text OR an image array
 export async function completeChat(
   messages: ChatMessage[], 
   options: ChatOptions = {}
-): Promise<string | null> {
+): Promise<string | ImageResponse[] | null> {
   
   const API_KEY = process.env.OPENROUTER_API_KEY;
   if (!API_KEY) throw new Error("Missing OPENROUTER_API_KEY");
 
-  const model = options.model || "x-ai/grok-4.1-fast:free";
-  const temperature = options.temperature ?? 0.7;
-  const reasoningEnabled = options.reasoningEnabled ?? true;
-
-  // SANITY CHECK: Filter out any corrupted messages
-  // This fixes the 400 Error if history contained null/undefined
-  const cleanMessages = messages.filter(m => m && m.content && typeof m.content === 'string');
+  // Default to Gemini Flash if image modality is requested, otherwise Grok
+  const model = options.model || (options.modalities ? "google/gemini-3-pro-image-preview" : "x-ai/grok-4.1-fast:free");
+  
+  // Sanity Check
+  const cleanMessages = messages.filter(m => m && m.content);
 
   const payload: any = {
     model,
     messages: cleanMessages,
-    temperature,
+    temperature: options.temperature ?? 0.7,
   };
 
-  if (reasoningEnabled) {
-    payload["reasoning"] = { enabled: true };
-  }
+  if (options.reasoningEnabled) payload.reasoning = { enabled: true };
+  if (options.tools) payload.tools = options.tools;
+  if (options.modalities) payload.modalities = options.modalities;
 
   try {
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -44,26 +53,32 @@ export async function completeChat(
       headers: {
         "Authorization": `Bearer ${API_KEY}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://github.com/your-repo",
-        "X-Title": "OpenChat Bot",
+        "HTTP-Referer": "https://github.com/pulseofthemachine/oc-grok-bot",
+        "X-Title": "OpenChat Grok Bot",
       },
       body: JSON.stringify(payload)
     });
 
     if (!response.ok) {
-      // --- THE DEBUG FIX ---
-      // We read the error text from OpenRouter to see WHY it failed
-      const errorBody = await response.text();
-      console.error("--------------------------------");
-      console.error(`OPENROUTER API ERROR: ${response.status}`);
-      console.error(`PAYLOAD SENT:`, JSON.stringify(payload).substring(0, 500) + "...");
-      console.error(`RESPONSE BODY:`, errorBody);
-      console.error("--------------------------------");
-      throw new Error(`API Error: ${response.status} - ${errorBody}`);
+      const err = await response.text();
+      console.error(`OPENROUTER ERROR: ${response.status} - ${err}`);
+      throw new Error(`API Error: ${response.status} - ${err}`);
     }
 
     const data = await response.json();
-    return data.choices[0]?.message?.content || null;
+    const choice = data.choices[0];
+
+    // 1. Check for Native Image Array (OpenRouter Standard)
+    if (choice.message.images && choice.message.images.length > 0) {
+        console.log("📸 Received Native Image Array");
+        return choice.message.images as ImageResponse[];
+    }
+
+    // 2. Check for Tool Calls (Some models return images as tool outputs)
+    // (Skipping for now to keep it simple, but good to know)
+
+    // 3. Fallback to Text
+    return choice.message.content || null;
 
   } catch (error) {
     console.error("Request failed:", error);

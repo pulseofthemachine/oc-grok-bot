@@ -18,3 +18,9 @@ export const botFactory = new BotClientFactory({
   identityPrivateKey: identityPrivateKey,
   openStorageCanisterId: process.env.STORAGE_INDEX_CANISTER!,
 });
+
+export const BOT_ADMIN_ID = process.env.BOT_ADMIN_ID || "";
+
+if (!BOT_ADMIN_ID) {
+  console.warn("⚠️ WARNING: BOT_ADMIN_ID is not set in .env. Admin commands will not work.");
+}

@@ -1,8 +1,7 @@
 import { Command } from '../engine/command-registry';
 import { Permissions } from '@open-ic/openchat-botclient-ts';
 import { historyManager } from '../engine/history-manager';
-
-const ADMIN_ID = "6vxrs-taaaa-aaaar-a2o3q-cai"; 
+import { BOT_ADMIN_ID } from '../engine/config'; 
 
 export const ClearStoryCommand: Command = {
   name: "clearstory",
@@ -20,7 +19,7 @@ export const ClearStoryCommand: Command = {
     // 1. Security Logic
     // Rule: If it's a Group, only Admin can clear it.
     // Rule: If it's Direct, the user owns it, so they can clear it.
-    if (ctx.isGroup && ctx.userId !== ADMIN_ID) {
+    if (ctx.isGroup && ctx.userId !== BOT_ADMIN_ID) {
       console.log("❌ ACCESS DENIED (Group protection)");
       await ctx.reply("⛔ **Access Denied:** Only the bot owner can wipe the shared story in a Group.");
       return; 

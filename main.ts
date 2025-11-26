@@ -1,3 +1,9 @@
+import crypto from 'crypto';
+if (!global.crypto) {
+  // @ts-ignore
+  global.crypto = crypto;
+}
+
 import { startBotServer } from './modules/engine/server-runner';
 import { CommandRegistry } from './modules/engine/command-registry';
 import { loadCommands } from './modules/loader';
