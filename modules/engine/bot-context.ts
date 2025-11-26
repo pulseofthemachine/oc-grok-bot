@@ -5,8 +5,7 @@ import { historyManager } from './history-manager';
 import { completeChat, ChatMessage } from './openrouter-client';
 import { buildSystemPrompt } from '../helpers/prompt-builder';
 import { formatDisplayMessage } from '../helpers/message-formatter';
-import { downloadAndResizeImage } from '../helpers/image-processor';
-import { sendToOpenChat } from './openchat-sender';
+import sharp from 'sharp';
 
 export class BotContext {
   public client: any;
@@ -72,7 +71,34 @@ export class BotContext {
     return val;
   }
 
-  // --- CHAT LOGIC ---
+  // --- CENTRALIZED SENDER (The Refactor) ---
+  // Handles Patching, Sending, and HTTP Responding in one place.
+  private async sendAndRespond(messageObject: any, successLog: string) {
+    
+    // 1. Monkey Patch (Auth Token)
+    const originalToInputArgs = messageObject.toInputArgs.bind(messageObject);
+    messageObject.toInputArgs = (ctx: any) => {
+        const standardArgs = originalToInputArgs(ctx);
+        return { ...standardArgs, auth_token: this.token };
+    };
+
+    try {
+      // 2. Send to Blockchain
+      await this.client.sendMessage(messageObject);
+      console.log(successLog);
+
+      // 3. Send to Frontend
+      if (!this.res.headersSent) {
+        this.res.status(200).json(success(messageObject));
+      }
+    } catch (e: any) {
+      console.error("BLOCKCHAIN ERROR:", e);
+      if (!this.res.headersSent) {
+        this.res.status(500).send("Failed to save message");
+      }
+    }
+  }
+
   async chatWithAI(options: {
     contextKey: string;
     userPrompt: string;
@@ -122,20 +148,14 @@ export class BotContext {
     await this.reply(displayMessage);
   }
 
-  // --- REPLY LOGIC ---
+  // --- CLEANER PUBLIC METHODS ---
+
   async reply(text: string) {
-    console.log("Saving to Blockchain...");
+    console.log("Saving Text to Blockchain...");
     const message = await this.client.createTextMessage(text);
     
-    try {
-      // Delegate to Sender Engine
-      await sendToOpenChat(this.client, this.token, message);
-      console.log("Saved successfully.");
-      if (!this.res.headersSent) this.res.status(200).json(success(message));
-    } catch (e: any) {
-      console.error("BLOCKCHAIN ERROR:", e);
-      if (!this.res.headersSent) this.res.status(500).send("Failed to save message");
-    }
+    // Delegate to helper
+    await this.sendAndRespond(message, "Text Saved Successfully.");
   }
 
   async replyWithImage(imageUrl: string, caption?: string) {
@@ -146,8 +166,7 @@ export class BotContext {
 
     console.log("Processing Image URL:", imageUrl.substring(0, 50) + "...");
 
-    // Delegate to Image Processor Helper
-    const processed = await downloadAndResizeImage(imageUrl);
+    const processed = await this.processImage(imageUrl);
     
     if (!processed) {
         await this.reply("Error: Failed to process the generated image.");
@@ -162,13 +181,33 @@ export class BotContext {
         caption
     );
 
+    // Delegate to helper
+    await this.sendAndRespond(message, "Image Sent Successfully.");
+  }
+
+  async processImage(imageUrl: string): Promise<{ data: Uint8Array, mime: string } | null> {
     try {
-      // Delegate to Sender Engine
-      await sendToOpenChat(this.client, this.token, message);
-      console.log("Image Sent Successfully.");
-      if (!this.res.headersSent) this.res.status(200).json(success(message));
+      let buffer: Buffer;
+      if (imageUrl.startsWith('data:')) {
+        const matches = imageUrl.match(/^data:(.+);base64,(.+)$/);
+        if (!matches) return null;
+        buffer = Buffer.from(matches[2], 'base64');
+      } else {
+        const response = await fetch(imageUrl);
+        if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
+        const arrayBuffer = await response.arrayBuffer();
+        buffer = Buffer.from(arrayBuffer);
+      }
+
+      const resizedBuffer = await sharp(buffer)
+        .resize(1024, 559, { fit: 'inside', withoutEnlargement: true })
+        .toFormat('png')
+        .toBuffer();
+
+      return { data: new Uint8Array(resizedBuffer), mime: 'image/png' };
     } catch (e) {
-      console.error("Failed to send image:", e);
+      console.error("Image Processing Error:", e);
+      return null;
     }
   }
 }
