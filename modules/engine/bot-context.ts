@@ -71,11 +71,41 @@ export class BotContext {
     return val;
   }
 
-  // --- CENTRALIZED SENDER (The Refactor) ---
-  // Handles Patching, Sending, and HTTP Responding in one place.
-  private async sendAndRespond(messageObject: any, successLog: string) {
+  // --- NEW: CREDIT GATEKEEPER ---
+  async checkAndCharge(cost: number, type: 'text' | 'image' = 'text'): Promise<boolean> {
+    const isVIP = (this.membershipTier === "Diamond" || this.membershipTier === "Lifetime");
     
-    // 1. Monkey Patch (Auth Token)
+    // FIX: Use this.userId (The Person) instead of this.storageKey (The Context)
+    const walletKey = this.userId; 
+
+    // 1. Trigger Daily Reset Check
+    historyManager.checkDailyReset(walletKey, isVIP);
+
+    // 2. Check Balance
+    const balance = historyManager.getBalance(walletKey);
+    
+    if (balance < cost) {
+        await this.reply(`🚫 **Out of Credits!**\nThis action costs ${cost} credits, but you only have ${balance}.\n\nDaily credits reset at 00:00 UTC.\nStandard: 5/day | Diamond: 20/day.`);
+        return false;
+    }
+
+    // 3. Charge
+    historyManager.deductCredits(walletKey, cost);
+    
+    // NEW: Record Stats
+    historyManager.recordUsage(walletKey, cost, type);
+    
+    return true;
+  }
+
+  // --- REFUND HELPER ---
+  async refund(amount: number, type: 'text' | 'image') {
+    // FIX: Refund the Person, not the Group
+    historyManager.refundCredits(this.userId, amount, type);
+  }
+
+  // --- CENTRALIZED SENDER ---
+  private async sendAndRespond(messageObject: any, successLog: string) {
     const originalToInputArgs = messageObject.toInputArgs.bind(messageObject);
     messageObject.toInputArgs = (ctx: any) => {
         const standardArgs = originalToInputArgs(ctx);
@@ -83,11 +113,8 @@ export class BotContext {
     };
 
     try {
-      // 2. Send to Blockchain
       await this.client.sendMessage(messageObject);
       console.log(successLog);
-
-      // 3. Send to Frontend
       if (!this.res.headersSent) {
         this.res.status(200).json(success(messageObject));
       }
@@ -99,6 +126,7 @@ export class BotContext {
     }
   }
 
+  // --- TEXT CHAT HELPER ---
   async chatWithAI(options: {
     contextKey: string;
     userPrompt: string;
@@ -108,6 +136,9 @@ export class BotContext {
     reasoningEnabled?: boolean;
     tools?: any[];
   }) {
+    // 1. CHECK CREDITS (Cost: 1)
+    if (!(await this.checkAndCharge(1))) return;
+
     const { contextKey, userPrompt, model, temperature, reasoningEnabled, tools } = options;
 
     historyManager.addMessage(this.storageKey, contextKey, 'user', `${this.displayName}: ${userPrompt}`);
@@ -148,13 +179,11 @@ export class BotContext {
     await this.reply(displayMessage);
   }
 
-  // --- CLEANER PUBLIC METHODS ---
+  // --- PUBLIC REPLY METHODS ---
 
   async reply(text: string) {
     console.log("Saving Text to Blockchain...");
     const message = await this.client.createTextMessage(text);
-    
-    // Delegate to helper
     await this.sendAndRespond(message, "Text Saved Successfully.");
   }
 
@@ -181,7 +210,6 @@ export class BotContext {
         caption
     );
 
-    // Delegate to helper
     await this.sendAndRespond(message, "Image Sent Successfully.");
   }
 

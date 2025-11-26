@@ -1,7 +1,6 @@
 import { Command } from '../engine/command-registry';
 import { Permissions } from '@open-ic/openchat-botclient-ts';
 import { completeChat, ImageResponse } from '../engine/openrouter-client';
-import { BOT_ADMIN_ID } from '../engine/config'; 
 
 export const ImagineCommand: Command = {
   name: "imagine",
@@ -16,12 +15,11 @@ export const ImagineCommand: Command = {
     }
   ],
   execute: async (ctx) => {
-    const prompt = ctx.getString("prompt");
+    // Cost: 10 Credits
+    const COST = 10;
+    if (!(await ctx.checkAndCharge(COST, 'image'))) return;
 
-    if (ctx.userId !== BOT_ADMIN_ID) {
-        await ctx.reply("⛔ **Access Denied:** Image generation is currently restricted to the bot administrator to manage API costs.");
-        return;
-    }
+    const prompt = ctx.getString("prompt");
 
     try {
         // 1. Call OpenRouter with Image Modality
@@ -52,6 +50,8 @@ export const ImagineCommand: Command = {
         }
     } catch (e: any) {
         await ctx.reply(`Generation Failed: ${e.message}`);
+        await ctx.refund(COST, 'image'); // <--- GIVE IT BACK
+        await ctx.reply(`❌ Generation Failed (Credits Refunded): ${e.message}`);
     }
   }
 };

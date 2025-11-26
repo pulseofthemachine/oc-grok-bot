@@ -23,14 +23,14 @@ export const EditImageCommand: Command = {
     }
   ],
   execute: async (ctx) => {
+if (!(await ctx.checkAndCharge(10, 'image'))) return;
+    // Cost: 10 Credits
+    const COST = 10;
+    if (!(await ctx.checkAndCharge(COST, 'image'))) return;
+
     const url = ctx.getString("image_url");
     const prompt = ctx.getString("prompt");
-    
-    // Security check
-    if (ctx.userId !== BOT_ADMIN_ID) {
-            await ctx.reply("⛔ **Access Denied:** Image generation is currently restricted to the bot administrator to manage API costs.");
-            return;
-        }
+
 
     // 1. Validate URL
     const validation = await validateImageUrl(url);
@@ -40,7 +40,7 @@ export const EditImageCommand: Command = {
     }
 
     try {
-        // 2. Prepare Multimodal Payload
+        //  Prepare Multimodal Payload
         // We send the image URL + the text prompt to the AI
         const messages: any[] = [
             {
@@ -52,14 +52,14 @@ export const EditImageCommand: Command = {
             }
         ];
 
-        // 3. Call AI
+        // Call AI
         const response = await completeChat(messages, {
             model: "google/gemini-3-pro-image-preview",
             modalities: ["image"], // Ask for an image back!
             temperature: 1
         });
 
-        // 4. Handle Result
+        // Handle Result
         if (Array.isArray(response) && response.length > 0) {
             // Success: Image Returned
             const imageObj = response[0] as any;
@@ -80,6 +80,8 @@ export const EditImageCommand: Command = {
 
     } catch (e: any) {
         await ctx.reply(`❌ Failed: ${e.message}`);
+        await ctx.refund(COST, 'image'); // <--- GIVE IT BACK  
+        await ctx.reply(`❌ Edit Failed (Credits Refunded): ${e.message}`);
     }
   }
 };
