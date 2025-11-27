@@ -1,4 +1,4 @@
-import { BotContext } from './bot-context';
+import { BotContext } from './context';
 
 // Interface for what a Command looks like
 export interface Command {

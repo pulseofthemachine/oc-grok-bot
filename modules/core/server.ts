@@ -1,8 +1,8 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import { botFactory } from './config';
-import { BotContext } from './bot-context';
-import { CommandRegistry } from './command-registry';
+import { BotContext } from './context';
+import { CommandRegistry } from './registry';
 import { argumentsInvalid, BadRequestError } from '@open-ic/openchat-botclient-ts';
 
 export function startBotServer(port: number, registry: CommandRegistry) {

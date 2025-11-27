@@ -1,4 +1,4 @@
-import { Command } from '../engine/command-registry';
+import { Command } from '../core/registry';
 import { Permissions } from '@open-ic/openchat-botclient-ts';
 
 export const AskCommand: Command = {

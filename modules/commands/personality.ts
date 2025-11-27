@@ -1,6 +1,6 @@
-import { Command } from '../engine/command-registry';
+import { Command } from '../core/registry';
 import { Permissions } from '@open-ic/openchat-botclient-ts';
-import { historyManager } from '../engine/history-manager';
+import { historyManager } from '../services/history/manager';
 
 export const PersonalityCommand: Command = {
   name: "personality",

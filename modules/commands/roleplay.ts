@@ -1,5 +1,5 @@
 
-import { Command } from '../engine/command-registry';
+import { Command } from '../core/registry';
 import { Permissions } from '@open-ic/openchat-botclient-ts';
 
 const DM_PROMPT = `You are a collaborative Dungeon Master / Storyteller for a narrative roleplay. Your primary goal is to weave an engaging story based on the user's inputs, which will represent the actions, dialogue, or internal thoughts of any of the characters, and may direct narrative developments.

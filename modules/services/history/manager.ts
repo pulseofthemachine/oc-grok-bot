@@ -1,98 +1,31 @@
-import fs from 'fs';
 import path from 'path';
-import { ChatMessage } from './openrouter-client';
-
-const DEFAULT_SYSTEM_PROMPT = "You are a helpful assistant.";
-
-// Inner structure for a single context
-interface ContextData {
-  history: ChatMessage[];
-  personality: string;
-}
-
-// Root structure for the user/group file
-interface SessionData {
-  contexts: { [key: string]: ContextData };
-  
-  // --- ECONOMY ---
-  dailyCredits: number;      // Resets daily
-  purchasedCredits: number;  // Does not reset
-  lastDailyReset: number;    // Timestamp of last reset
-
-  // --- LIFETIME STATS ---
-  totalCreditsUsed: number;
-  totalTextMessages: number;
-  totalImagesGenerated: number;
-}
+import { ChatMessage } from '../../adapters/openrouter';
+import { SessionData, ContextData, DeductReceipt, DEFAULT_SYSTEM_PROMPT } from './types';
+import { HistoryStore } from './store';
 
 export class HistoryManager {
   private sessions = new Map<string, SessionData>();
   private MAX_HISTORY = 100;
-  private DATA_DIR = path.resolve('./data');
-
+  
   // Configurable limits
   public DAILY_LIMIT_STANDARD = 5;
   public DAILY_LIMIT_VIP = 20;
 
+  private store: HistoryStore;
+
   constructor() {
-    if (!fs.existsSync(this.DATA_DIR)) {
-      fs.mkdirSync(this.DATA_DIR);
-    }
+    // Fix pathing to ensure it works regardless of CWD
+    // From: modules/services/history/manager.ts -> ../../../data
+    const dataDir = path.join(__dirname, '../../../data');
+    this.store = new HistoryStore(dataDir, this.DAILY_LIMIT_STANDARD);
   }
 
   // --- PERSISTENCE ---
 
   private saveSession(key: string) {
-    try {
-      const session = this.sessions.get(key);
-      if (!session) return;
-      const filePath = path.join(this.DATA_DIR, `${key}.json`);
-      fs.writeFileSync(filePath, JSON.stringify(session, null, 2));
-    } catch (error) {
-      console.error(`Failed to save session ${key}:`, error);
-    }
-  }
-
-  private loadSession(key: string): SessionData | null {
-    try {
-      const filePath = path.join(this.DATA_DIR, `${key}.json`);
-      if (fs.existsSync(filePath)) {
-        const raw = fs.readFileSync(filePath, 'utf-8');
-        const data = JSON.parse(raw);
-        
-        // MIGRATION 1: Convert very old files (pre-contexts)
-        if (!data.contexts && data.history) {
-            return {
-                contexts: {
-                    'default': { history: data.history, personality: data.personality || DEFAULT_SYSTEM_PROMPT }
-                },
-                dailyCredits: this.DAILY_LIMIT_STANDARD,
-                purchasedCredits: 0,
-                lastDailyReset: Date.now(),
-                totalCreditsUsed: 0,
-                totalTextMessages: 0,
-                totalImagesGenerated: 0
-            };
-        }
-
-        // MIGRATION 2: Add missing fields for Economy & Stats
-        if (data.dailyCredits === undefined) {
-            data.dailyCredits = this.DAILY_LIMIT_STANDARD;
-            data.purchasedCredits = 0;
-            data.lastDailyReset = Date.now();
-        }
-        if (data.totalCreditsUsed === undefined) {
-            data.totalCreditsUsed = 0;
-            data.totalTextMessages = 0;
-            data.totalImagesGenerated = 0;
-        }
-
-        return data;
-      }
-    } catch (error) {
-      console.error(`Failed to load session ${key}:`, error);
-    }
-    return null;
+    const session = this.sessions.get(key);
+    if (!session) return;
+    this.store.saveSession(key, session);
   }
 
   // --- SESSION HELPERS ---
@@ -100,7 +33,7 @@ export class HistoryManager {
   private getSession(key: string): SessionData {
     if (this.sessions.has(key)) return this.sessions.get(key)!;
 
-    const loadedData = this.loadSession(key);
+    const loadedData = this.store.loadSession(key);
     if (loadedData) {
       this.sessions.set(key, loadedData);
       return loadedData;
@@ -149,19 +82,6 @@ export class HistoryManager {
         this.saveSession(key);
         return;
     }
-
-    // 2. UPGRADE CHECK (Fixed Logic)
-    // Only upgrade if they are EXACTLY at the Standard Limit (meaning they haven't spent anything yet, or just got reset)
-    // OR if they are between Standard and VIP limit but haven't spent down.
-    // Actually, the safest logic is: If they are VIP, and their dailyCredits is EXACTLY 5 (Standard Limit), bump it.
-    // If it is 0, 1, 2, 3, 4... they spent it. Don't bump.
-    
-    if (isVIP && session.dailyCredits === this.DAILY_LIMIT_STANDARD) {
-         const bonus = this.DAILY_LIMIT_VIP - this.DAILY_LIMIT_STANDARD;
-         session.dailyCredits += bonus;
-         console.log(`💎 Applied VIP Bonus for ${key}: +${bonus} credits`);
-         this.saveSession(key);
-    }
   }
 
   getBalance(key: string): number {
@@ -169,49 +89,54 @@ export class HistoryManager {
     return session.dailyCredits + session.purchasedCredits;
   }
 
-  deductCredits(key: string, amount: number): boolean {
+  // SMART DEDUCT: Returns a receipt of where credits came from
+  deductCredits(key: string, amount: number): DeductReceipt {
     const session = this.getSession(key);
     
-    if ((session.dailyCredits + session.purchasedCredits) < amount) return false;
+    if (this.getBalance(key) < amount) {
+        return { success: false, dailyDeducted: 0, purchasedDeducted: 0 };
+    }
 
     let remainingCost = amount;
+    let dailyDeducted = 0;
+    let purchasedDeducted = 0;
 
     // Burn Daily first
     if (session.dailyCredits >= remainingCost) {
         session.dailyCredits -= remainingCost;
+        dailyDeducted = remainingCost;
         remainingCost = 0;
     } else {
+        dailyDeducted = session.dailyCredits;
         remainingCost -= session.dailyCredits;
         session.dailyCredits = 0;
         // Burn Purchased
-        session.purchasedCredits -= remainingCost;
+        purchasedDeducted = remainingCost;
+        session.purchasedCredits -= purchasedDeducted;
     }
 
     this.saveSession(key);
-    return true;
+    return { success: true, dailyDeducted, purchasedDeducted };
   }
 
-  refundCredits(key: string, amount: number, type: 'text' | 'image') {
+  // SMART REFUND: Puts credits back exactly where they came from
+  refundCredits(key: string, receipt: { daily: number, purchased: number }, type: 'text' | 'image') {
     const session = this.getSession(key);
     
-    // Give back to Daily first (if it was deducted from there)
-    // This logic is simple: Just dump it back into Daily up to the limit, rest to Purchased
-    // Or simpler: Just dump it all into Daily (it expires anyway) or Purchased (permanent refund).
-    // Let's do a smart refund:
+    session.dailyCredits += receipt.daily;
+    session.purchasedCredits += receipt.purchased;
     
-    // We don't track exactly where it came from, so we'll credit Daily first.
-    session.dailyCredits += amount;
-    
-    // Fix stats
+    // Fix stats (Decreasing counts because the action failed)
+    const amount = receipt.daily + receipt.purchased;
     session.totalCreditsUsed = Math.max(0, session.totalCreditsUsed - amount);
     if (type === 'text') session.totalTextMessages = Math.max(0, session.totalTextMessages - 1);
     if (type === 'image') session.totalImagesGenerated = Math.max(0, session.totalImagesGenerated - 1);
 
-    console.log(`Refunded ${amount} credits to ${key}`);
+    console.log(`Refunded: Daily=${receipt.daily}, Purchased=${receipt.purchased} to ${key}`);
     this.saveSession(key);
   }
 
-  // NEW: Record Stats
+  // Record Stats
   recordUsage(key: string, cost: number, type: 'text' | 'image') {
     const session = this.getSession(key);
     session.totalCreditsUsed += cost;
@@ -220,7 +145,6 @@ export class HistoryManager {
     this.saveSession(key);
   }
 
-  // NEW: Expose full session object for the credits command
   getStats(key: string): SessionData {
     return this.getSession(key);
   }

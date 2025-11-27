@@ -1,8 +1,8 @@
-import { Command } from '../engine/command-registry';
+import { Command } from '../core/registry';
 import { Permissions } from '@open-ic/openchat-botclient-ts';
-import { validateImageUrl } from '../helpers/url-validator';
-import { completeChat, ImageResponse } from '../engine/openrouter-client';
-import { BOT_ADMIN_ID } from '../engine/config';
+import { validateImageUrl } from '../utils/url-validator';
+import { completeChat, ImageResponse } from '../adapters/openrouter';
+import { BOT_ADMIN_ID } from '../core/config';
 
 export const EditImageCommand: Command = {
   name: "editimage",
@@ -61,27 +61,33 @@ if (!(await ctx.checkAndCharge(10, 'image'))) return;
 
         // Handle Result
         if (Array.isArray(response) && response.length > 0) {
-            // Success: Image Returned
             const imageObj = response[0] as any;
-            const finalUrl = imageObj.url || imageObj.image_url?.url || (imageObj.b64_json ? `data:image/png;base64,${imageObj.b64_json}` : null);
-            
-            if (finalUrl) {
-                await ctx.replyWithImage(finalUrl, `Edited: ${prompt}`);
-            } else {
-                throw new Error("AI returned an image object but no URL.");
-            }
+            let finalUrl: string | undefined;
 
+            if (imageObj.url) finalUrl = imageObj.url;
+            else if (imageObj.image_url?.url) finalUrl = imageObj.image_url.url;
+            else if (imageObj.b64_json) finalUrl = `data:image/png;base64,${imageObj.b64_json}`;
+
+            if (!finalUrl) {
+                throw new Error("AI generated an image, but the URL format was unrecognized.");
+            }
+            
+            await ctx.replyWithImage(finalUrl, `Generated: ${prompt}`);
+            
         } else if (typeof response === 'string') {
-            // Fallback: It might describe the image instead of editing it
-            await ctx.reply(`📝 Analysis: ${response}`);
+            // --- FIX: Throw Error instead of just replying ---
+            // This forces the code into the 'catch' block, which processes the REFUND.
+            throw new Error(`AI Refusal: ${response}`);
         } else {
-            await ctx.reply("⚠️ Error: No response from AI.");
+            throw new Error("No image returned from provider.");
         }
 
     } catch (e: any) {
-        await ctx.reply(`❌ Failed: ${e.message}`);
-        await ctx.refund(COST, 'image'); // <--- GIVE IT BACK  
-        await ctx.reply(`❌ Edit Failed (Credits Refunded): ${e.message}`);
+        console.error("Imagine Error:", e);
+        
+        // Refund runs here
+        await ctx.refund('image');
+        await ctx.reply(`❌ Generation Failed (Credits Refunded): ${e.message}`);
     }
   }
 };

@@ -1,15 +1,19 @@
-import { Command } from '../engine/command-registry';
+import { Command } from '../core/registry';
 import { Permissions } from '@open-ic/openchat-botclient-ts';
-import { historyManager } from '../engine/history-manager';
+import { historyManager } from '../services/history/manager';
 
 export const CreditsCommand: Command = {
   name: "credits",
   description: "Check your credit balance and usage stats",
   permissions: Permissions.encodePermissions({ chat: [], community: [], message: ["Text"] }),
-  params: [], // No args needed, just /credits handles the balance view
+  params: [], 
   execute: async (ctx) => {
-    const data = historyManager.getStats(ctx.userId);   
+    // Trigger the reset check explicitly before reading stats
     const isVIP = (ctx.membershipTier === "Diamond" || ctx.membershipTier === "Lifetime");
+    historyManager.checkDailyReset(ctx.userId, isVIP);
+
+    // Now get the fresh stats
+    const data = historyManager.getStats(ctx.userId);
     const dailyLimit = isVIP ? historyManager.DAILY_LIMIT_VIP : historyManager.DAILY_LIMIT_STANDARD;
     
     // Calculate Time to Reset (00:00 UTC)

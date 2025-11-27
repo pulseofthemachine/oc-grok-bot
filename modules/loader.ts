@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { CommandRegistry } from './engine/command-registry';
+import { CommandRegistry } from './core/registry';
 
 export async function loadCommands(registry: CommandRegistry) {
   const commandsDir = path.join(__dirname, 'commands');

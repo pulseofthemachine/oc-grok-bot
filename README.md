@@ -16,21 +16,35 @@ A high-performance, modular TypeScript bot framework for **OpenChat** on the Int
 ## 📂 Project Structure
 
 ```text
-├── main.ts                  # Entry point
+├── main.ts                     # Entry point
+├── tsconfig.json               # TypeScript configuration
 ├── modules/
-│   ├── commands/            # ⚡️ THE PLUGINS (Drop new commands here)
-│   │   ├── ask.ts           # Standard AI Chat
-│   │   ├── roleplay.ts      # RPG Context Example
-│   │   ├── personality.ts   # System Prompt Manager
-│   │   └── ...              # (poem, clearchat, etc.)
-│   ├── engine/              # ⚙️ THE CORE
-│   │   ├── bot-context.ts   # The "God Object" (State, AI, Blockchain)
-│   │   ├── history-manager.ts # JSON Database Engine
-│   │   └── ...              # (registry, config, server-runner)
-│   ├── helpers/             # 🛠 UTILITIES (Prompt building, formatting)
-│   └── loader.ts            # Auto-loader
-├── data/                    # User history JSON files (Auto-generated)
-└── .env                     # API Keys                   # API Keys
+│   ├── commands/               # ⚡️ THE PLUGINS (Drop new commands here)
+│   │   ├── ask.ts              # Standard AI Chat
+│   │   ├── roleplay.ts         # RPG Context Example
+│   │   ├── personality.ts      # System Prompt Manager
+│   │   └── ...                 # (poem, clearchat, etc.)
+│   ├── core/                   # ⚙️ CORE COMPONENTS (BotContext, Server, Command Registry)
+│   │   ├── context.ts          # The "BotContext" abstraction
+│   │   ├── registry.ts         # Command registration and dispatch
+│   │   ├── server.ts           # Express.js server setup
+│   │   └── config.ts           # Bot client configuration
+│   ├── services/               # 💼 BUSINESS LOGIC (Economy, Chat, History)
+│   │   ├── chat.ts             # High-level AI chat orchestration
+│   │   ├── economy.ts          # Credit management logic
+│   │   └── history/            # Persistent history and state management
+│   │       ├── manager.ts      # History management facade
+│   │       ├── store.ts        # File system persistence for history
+│   │       └── types.ts        # Data models for history and session
+│   ├── adapters/               # 🔌 EXTERNAL INTEGRATIONS (OpenChat, OpenRouter)
+│   │   ├── openchat.ts         # OpenChat SDK wrapper
+│   │   └── openrouter.ts       # OpenRouter API client
+│   ├── utils/                  # 🛠 UTILITIES (Helper functions, formatters)
+│   │   ├── prompt-builder.ts   # System prompt generation
+│   │   └── ...                 # (image-processor, message-formatter, reply-helpers, etc.)
+│   └── loader.ts               # Auto-loads commands into the registry
+├── data/                       # User history JSON files (Auto-generated)
+└── .env                        # Environment variables (API Keys, etc.)
 ```
 
 ---
@@ -81,7 +95,7 @@ Thanks to the modular architecture, adding a new command is trivial.
 **2. Paste this template:**
 
 ```typescript
-import { Command } from '../command-registry';
+import { Command } from '../core/registry';
 import { Permissions } from '@open-ic/openchat-botclient-ts';
 
 export const JokeCommand: Command = {

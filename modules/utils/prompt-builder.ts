@@ -1,4 +1,4 @@
-import { historyManager } from '../engine/history-manager';
+import { historyManager } from '../services/history/manager';
 
 export function buildSystemPrompt(
   userId: string,

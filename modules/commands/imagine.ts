@@ -1,6 +1,6 @@
-import { Command } from '../engine/command-registry';
+import { Command } from '../core/registry';
 import { Permissions } from '@open-ic/openchat-botclient-ts';
-import { completeChat, ImageResponse } from '../engine/openrouter-client';
+import { completeChat, ImageResponse } from '../adapters/openrouter';
 
 export const ImagineCommand: Command = {
   name: "imagine",
@@ -26,7 +26,7 @@ export const ImagineCommand: Command = {
         const response = await completeChat([
             { role: 'user', content: prompt }
         ], {
-            model: "google/gemini-3-pro-image-preview", // Supports text-to-image
+            model: "google/gemini-2.5-flash-image", // Supports text-to-image
             modalities: ["image"],
             temperature: 1
         });
@@ -34,10 +34,8 @@ export const ImagineCommand: Command = {
         // 2. Handle Response
         if (Array.isArray(response) && response.length > 0) {
             const imageObj = response[0] as any;
-
             let finalUrl: string | undefined;
 
-            // Try all known formats
             if (imageObj.url) finalUrl = imageObj.url;
             else if (imageObj.image_url?.url) finalUrl = imageObj.image_url.url;
             else if (imageObj.b64_json) finalUrl = `data:image/png;base64,${imageObj.b64_json}`;
@@ -47,10 +45,18 @@ export const ImagineCommand: Command = {
             }
             
             await ctx.replyWithImage(finalUrl, `Generated: ${prompt}`);
+            
+        } else if (typeof response === 'string') {
+            throw new Error(`AI Refusal: ${response}`);
+        } else {
+            throw new Error("No image returned from provider.");
         }
+
     } catch (e: any) {
-        await ctx.reply(`Generation Failed: ${e.message}`);
-        await ctx.refund(COST, 'image'); // <--- GIVE IT BACK
+        console.error("Imagine Error:", e);
+        
+        // Refund runs here
+        await ctx.refund('image');
         await ctx.reply(`❌ Generation Failed (Credits Refunded): ${e.message}`);
     }
   }

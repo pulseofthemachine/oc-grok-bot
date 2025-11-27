@@ -1,6 +1,6 @@
-import { Command } from '../engine/command-registry';
+import { Command } from '../core/registry';
 import { Permissions } from '@open-ic/openchat-botclient-ts';
-import { completeChat, ChatMessage } from '../engine/openrouter-client';
+import { completeChat, ChatMessage } from '../adapters/openrouter';
 
 export const PoemCommand: Command = {
   name: "poem",
@@ -20,6 +20,10 @@ export const PoemCommand: Command = {
         temperature: 1.2 
     });
     
-    await ctx.reply(response || "Roses are red, servers are down...");
+    if (typeof response === 'string') {
+        await ctx.reply(response);
+    } else {
+        await ctx.reply("Roses are red, servers are down (and I got an unexpected image response...)");
+    }
   }
 };

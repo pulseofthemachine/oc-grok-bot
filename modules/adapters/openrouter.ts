@@ -68,6 +68,10 @@ export async function completeChat(
     const data = await response.json();
     const choice = data.choices[0];
 
+    if (choice.finish_reason === "content_filter") {
+        throw new Error("Content blocked by safety filters.");
+    }
+
     // 1. Check for Native Image Array (OpenRouter Standard)
     if (choice.message.images && choice.message.images.length > 0) {
         console.log("📸 Received Native Image Array");

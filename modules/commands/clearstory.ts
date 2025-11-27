@@ -1,7 +1,7 @@
-import { Command } from '../engine/command-registry';
+import { Command } from '../core/registry';
 import { Permissions } from '@open-ic/openchat-botclient-ts';
-import { historyManager } from '../engine/history-manager';
-import { BOT_ADMIN_ID } from '../engine/config'; 
+import { historyManager } from '../services/history/manager';
+import { BOT_ADMIN_ID } from '../core/config'; 
 
 export const ClearStoryCommand: Command = {
   name: "clearstory",
