@@ -4,47 +4,54 @@ A high-performance, modular TypeScript bot framework for **OpenChat** on the Int
 
 ## 🚀 Features
 
-*   **🧠 Persistent Memory:** User and group conversations are saved to disk (`data/` folder). Memory survives server restarts.
-*   **🎭 Multi-Context Support:** Users can have parallel, isolated conversations (e.g., a standard Chat context AND a separate RPG Roleplay context) that never overlap.
-*   **🔌 Auto-Loading Commands:** Simply drop a `.ts` file into `modules/commands/` and the server automatically registers it. No manual routing required.
-*   **🛡️ Type-Safe & Modular:** Built with TypeScript. Logic is separated into a `BotContext` abstraction layer, keeping command files incredibly clean.
-*   **🤖 AI Agnostic:** Pre-configured for **Grok** (via OpenRouter) but supports any OpenAI-compatible model.
-*   **✅ OpenChat Native:** Handles JWT verification, Principal IDs, and patches the SDK to ensure correct persistence on the Blockchain.
+*   **🧠 Persistent Memory:** Conversations are saved to disk (`data/` folder), ensuring memory survives server restarts.
+*   **🎭 Multi-Context Support:** Enables parallel, isolated conversation contexts (e.g., a standard chat and a separate roleplay session) for each user or group.
+*   **🔌 Plug-and-Play Commands:** Automatically loads all command modules from the `modules/commands/` directory on startup.
+*   **🛡️ Type-Safe & Modular:** Built with TypeScript, featuring a clean separation of concerns that makes the codebase easy to maintain and extend.
+*   **🤖 AI Agnostic:** Pre-configured for Grok via OpenRouter but supports any OpenAI-compatible model.
+*   **✅ OpenChat Native:** Handles JWT verification and Principal ID extraction for seamless integration with the OpenChat platform.
+
+---
+
+## 🏛️ Architectural Overview
+
+The bot operates on a simple yet powerful design pattern:
+
+1.  **Initialization:** On startup, the server dynamically loads all command files from `modules/commands/` into a `CommandRegistry`. This registry is responsible for mapping command names to their corresponding execution logic.
+2.  **Request Handling:** Incoming HTTP requests are handled by an Express server. Each request is wrapped in a `BotContext` object, which encapsulates all the information and functionality related to the current request (e.g., user details, command arguments, and helper methods for replying).
+3.  **Command Dispatch:** The `BotContext` is passed to the `CommandRegistry`, which identifies the appropriate command based on the request and executes it.
+4.  **Service Layer:** Commands utilize a suite of services for core functionalities like interacting with the AI (`chat.ts`), managing user credits (`economy.ts`), and handling data persistence (`history/manager.ts`).
+
+This architecture keeps the command files lightweight and focused on their specific tasks, while the `BotContext` and service layers provide all the necessary tools for complex operations.
 
 ---
 
 ## 📂 Project Structure
 
 ```text
-├── main.ts                     # Entry point
+├── main.ts                     # Application entry point
 ├── tsconfig.json               # TypeScript configuration
 ├── modules/
-│   ├── commands/               # ⚡️ THE PLUGINS (Drop new commands here)
-│   │   ├── ask.ts              # Standard AI Chat
-│   │   ├── roleplay.ts         # RPG Context Example
-│   │   ├── personality.ts      # System Prompt Manager
-│   │   └── ...                 # (poem, clearchat, etc.)
-│   ├── core/                   # ⚙️ CORE COMPONENTS (BotContext, Server, Command Registry)
-│   │   ├── context.ts          # The "BotContext" abstraction
-│   │   ├── registry.ts         # Command registration and dispatch
+│   ├── commands/               # --- Command modules (add new commands here)
+│   ├── core/                   # --- Core server and bot components
+│   │   ├── context.ts          # BotContext class (request-level state)
+│   │   ├── registry.ts         # CommandRegistry for command loading
 │   │   ├── server.ts           # Express.js server setup
 │   │   └── config.ts           # Bot client configuration
-│   ├── services/               # 💼 BUSINESS LOGIC (Economy, Chat, History)
-│   │   ├── chat.ts             # High-level AI chat orchestration
-│   │   ├── economy.ts          # Credit management logic
-│   │   └── history/            # Persistent history and state management
-│   │       ├── manager.ts      # History management facade
-│   │       ├── store.ts        # File system persistence for history
-│   │       └── types.ts        # Data models for history and session
-│   ├── adapters/               # 🔌 EXTERNAL INTEGRATIONS (OpenChat, OpenRouter)
+│   ├── services/               # --- Business logic
+│   │   ├── chat.ts             # AI chat interaction service
+│   │   ├── economy.ts          # Credit management service
+│   │   └── history/            # --- Data persistence
+│   │       ├── manager.ts      # High-level history management
+│   │       ├── store.ts        # File-based data storage
+│   │       └── types.ts        # Data structures for session history
+│   ├── adapters/               # --- External service integrations
 │   │   ├── openchat.ts         # OpenChat SDK wrapper
 │   │   └── openrouter.ts       # OpenRouter API client
-│   ├── utils/                  # 🛠 UTILITIES (Helper functions, formatters)
-│   │   ├── prompt-builder.ts   # System prompt generation
-│   │   └── ...                 # (image-processor, message-formatter, reply-helpers, etc.)
-│   └── loader.ts               # Auto-loads commands into the registry
-├── data/                       # User history JSON files (Auto-generated)
-└── .env                        # Environment variables (API Keys, etc.)
+│   ├── utils/                  # --- Utility functions
+│   └── loader.ts               # Command auto-loader
+├── data/                       # --- User data (auto-generated)
+└── .env                        # Environment variables
 ```
 
 ---
@@ -75,15 +82,15 @@ STORAGE_INDEX_CANISTER=...
 ```
 
 ### 4. Run Locally
-Start the server for local testing:
+To start the server for local development, run:
 ```bash
 npx tsx main.ts
 ```
-Expose your local server via Ngrok for testing on the live platform (OpenChat requires HTTPS):
+Since OpenChat requires an HTTPS endpoint for bots, you will need to expose your local server using a tool like Ngrok:
 ```bash
 ngrok http 3000
 ```
-*Register the bot in OpenChat using your Ngrok HTTPS URL.*
+*You can then register your bot in OpenChat using the provided Ngrok HTTPS URL.*
 
 ---
 
@@ -92,35 +99,8 @@ ngrok http 3000
 Thanks to the modular architecture, adding a new command is trivial.
 
 **1. Create a file:** `modules/commands/joke.ts`
-**2. Paste this template:**
-
-```typescript
-import { Command } from '../core/registry';
-import { Permissions } from '@open-ic/openchat-botclient-ts';
-
-export const JokeCommand: Command = {
-  name: "joke", // Triggers on /joke
-  description: "Tell a funny joke",
-  permissions: Permissions.encodePermissions({ chat: ["CanSendMessages"], community: [], message: ["Text"] }),
-  params: [
-    {
-      name: "topic",
-      description: "Topic of the joke",
-      required: true,
-      param_type: { StringParam: { min_length: 1, max_length: 100, multi_line: false, choices: [] } }
-    }
-  ],
-  execute: async (ctx) => {
-    // The One-Liner AI Call
-    await ctx.chatWithAI({
-      contextKey: 'default', // Uses main chat history
-      userPrompt: `Tell a joke about: ${ctx.getString("topic")}`,
-      temperature: 0.9 // Higher creativity
-    });
-  }
-};
-```
-**3. Restart Server.** The bot will automatically load `/joke`.
+**2. Use an existing command as a template template (e.g. poem.ts)**
+**3. Restart the server.** Your new `/joke` command is now live!
 
 ---
 
