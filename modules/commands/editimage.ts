@@ -73,8 +73,6 @@ export const EditImageCommand: Command = {
             await ctx.replyWithImage(finalUrl, `Generated: ${prompt}`);
             
         } else if (typeof response === 'string') {
-            // --- FIX: Throw Error instead of just replying ---
-            // This forces the code into the 'catch' block, which processes the REFUND.
             throw new Error(`AI Refusal: ${response}`);
         } else {
             throw new Error("No image returned from provider.");

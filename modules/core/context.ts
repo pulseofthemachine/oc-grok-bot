@@ -78,7 +78,9 @@ export class BotContext {
   getString(name: string): string {
     const val = this.client.stringArg(name);
     if (!val) throw new Error(`Missing argument: ${name}`);
-    return val;
+    const trimmed = val.trim();
+    if (trimmed.length > 2000) throw new Error(`Argument ${name} exceeds maximum length of 2000 characters`);
+    return trimmed;
   }
 
   async checkAndCharge(cost: number, type: 'text' | 'image' = 'text'): Promise<boolean> {

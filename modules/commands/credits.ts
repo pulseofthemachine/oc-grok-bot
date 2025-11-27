@@ -10,10 +10,10 @@ export const CreditsCommand: Command = {
   execute: async (ctx) => {
     // Trigger the reset check explicitly before reading stats
     const isVIP = (ctx.membershipTier === "Diamond" || ctx.membershipTier === "Lifetime");
-    historyManager.checkDailyReset(ctx.userId, isVIP);
+    await historyManager.checkDailyReset(ctx.userId, isVIP);
 
     // Now get the fresh stats
-    const data = historyManager.getStats(ctx.userId);
+    const data = await historyManager.getStats(ctx.userId);
     const dailyLimit = isVIP ? historyManager.DAILY_LIMIT_VIP : historyManager.DAILY_LIMIT_STANDARD;
     
     // Calculate Time to Reset (00:00 UTC)

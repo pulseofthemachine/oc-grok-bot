@@ -1,7 +1,7 @@
 import { BotContext } from '../core/context';
 import { success } from './success';
-import { downloadAndResizeImage } from './image-processor';
 import { sendToOpenChat } from '../adapters/openchat';
+import { downloadAndResizeImage } from './image-processor';
 
 export async function reply(ctx: BotContext, text: string): Promise<void> {
   console.log("Saving Text to Blockchain...");
@@ -27,8 +27,8 @@ export async function replyWithImage(ctx: BotContext, imageUrl: string, caption?
   const message = await (ctx.client as any).createImageMessage(
     processed.data, 
     processed.mime, 
-    1024, 
-    559
+    1408, 
+    768
   );
 
   await sendToOpenChat(ctx.client, ctx.token, message);

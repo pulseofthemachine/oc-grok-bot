@@ -4,6 +4,7 @@ import { botFactory } from './config';
 import { BotContext } from './context';
 import { CommandRegistry } from './registry';
 import { argumentsInvalid, BadRequestError } from '@open-ic/openchat-botclient-ts';
+import { NextFunction } from 'express';
 
 export function startBotServer(port: number, registry: CommandRegistry) {
   const app = express();
@@ -29,6 +30,15 @@ export function startBotServer(port: number, registry: CommandRegistry) {
       else if (error.message.includes("Missing argument")) res.status(400).json(argumentsInvalid());
       else if (!res.headersSent) res.status(500).send("Internal Server Error");
     }
+  });
+
+  // Global error handling middleware
+  app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+    console.error("Global Error:", err.stack);
+    if (!res.headersSent) {
+      res.status(500).send("Internal Server Error");
+    }
+    next();
   });
 
   app.listen(port, () => {

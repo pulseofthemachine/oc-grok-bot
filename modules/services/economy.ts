@@ -17,10 +17,10 @@ export class EconomyManager {
     console.log(`[Debug Charge] User: '${walletKey}' | Cost: ${cost}`);
 
     // 1. Reset
-    historyManager.checkDailyReset(walletKey, isVIP);
+    await historyManager.checkDailyReset(walletKey, isVIP);
 
     // 2. Check Balance
-    const balance = historyManager.getBalance(walletKey);
+    const balance = await historyManager.getBalance(walletKey);
     console.log(`[Debug Charge] Balance: ${balance}`);
     
     if (balance < cost) {
@@ -29,7 +29,7 @@ export class EconomyManager {
     }
 
     // 3. Charge
-    const receipt = historyManager.deductCredits(walletKey, cost);
+    const receipt = await historyManager.deductCredits(walletKey, cost);
     console.log(`[Debug Charge] Receipt:`, receipt);
     
     if (!receipt.success) {
@@ -50,7 +50,7 @@ export class EconomyManager {
   async refund(type: 'text' | 'image') {
     const lastTransaction = (this.ctx as any).lastTransaction;
     if (lastTransaction) {
-        historyManager.refundCredits(this.ctx.userId, lastTransaction, type);
+        await historyManager.refundCredits(this.ctx.userId, lastTransaction, type);
         (this.ctx as any).lastTransaction = null; 
     } else {
         console.error("Cannot refund: No transaction record found.");

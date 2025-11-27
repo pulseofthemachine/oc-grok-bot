@@ -4,6 +4,11 @@ import { completeChat, ChatMessage } from '../adapters/openrouter';
 import { buildSystemPrompt } from '../utils/prompt-builder';
 import { formatDisplayMessage } from '../utils/message-formatter';
 
+/**
+ * Orchestrates an AI chat interaction with validation, charging, and history management.
+ * @param ctx The bot context.
+ * @param options Chat options including prompt and settings.
+ */
 export async function chatWithAI(
   ctx: BotContext,
   options: {
@@ -15,16 +20,26 @@ export async function chatWithAI(
     reasoningEnabled?: boolean;
     tools?: any[];
   }
-) {
+  ) {
   // 1. Charge Credits (Text = 1)
   if (!(await ctx.checkAndCharge(1, 'text'))) return;
 
   try {
     const { contextKey, userPrompt, model, temperature, reasoningEnabled, tools } = options;
 
-    historyManager.addMessage(ctx.storageKey, contextKey, 'user', `${ctx.displayName}: ${userPrompt}`);
+    // Validate input
+    if (userPrompt.trim().length === 0) {
+      await ctx.reply("Prompt cannot be empty.");
+      await ctx.refund('text');
+      return;
+    }
+    if (userPrompt.length > 5000) {
+      await ctx.reply("Prompt too long (max 5000 characters).");
+      await ctx.refund('text');
+      return;
+    }
 
-    const finalSystemPrompt = buildSystemPrompt(
+    await historyManager.addMessage(ctx.storageKey, contextKey, 'user', `${ctx.displayName}: ${userPrompt}`);    const finalSystemPrompt = buildSystemPrompt(
       ctx.userId,
       ctx.storageKey,
       contextKey,
@@ -35,7 +50,7 @@ export async function chatWithAI(
     );
 
     const contextMessages: ChatMessage[] = [{ role: 'system', content: finalSystemPrompt }];
-    contextMessages.push(...historyManager.getHistory(ctx.storageKey, contextKey));
+    contextMessages.push(...await historyManager.getHistory(ctx.storageKey, contextKey));
 
     console.log(`
 [AI Request] User: ${ctx.displayName} (${ctx.membershipTier}) | Prompt: ${userPrompt.substring(0, 50)}...`);
@@ -54,7 +69,7 @@ export async function chatWithAI(
       textResponse = "[Image Generated - Use /imagine to view images]";
     }
 
-    historyManager.addMessage(ctx.storageKey, contextKey, 'assistant', textResponse);
+    await historyManager.addMessage(ctx.storageKey, contextKey, 'assistant', textResponse);
 
     const displayMessage = formatDisplayMessage(ctx.userId, userPrompt, textResponse, ctx.isGroup);
 

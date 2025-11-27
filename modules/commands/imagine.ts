@@ -25,7 +25,7 @@ export const ImagineCommand: Command = {
         const response = await completeChat([
             { role: 'user', content: prompt }
         ], {
-            model: "google/gemini-2.5-flash-image", // Supports text-to-image
+            model: "google/gemini-3-pro-image-preview", // Supports text-to-image
             modalities: ["image"],
             temperature: 1
         });

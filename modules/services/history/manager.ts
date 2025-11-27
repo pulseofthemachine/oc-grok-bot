@@ -3,6 +3,9 @@ import { ChatMessage } from '../../adapters/openrouter';
 import { SessionData, ContextData, DeductReceipt, DEFAULT_SYSTEM_PROMPT } from './types';
 import { HistoryStore } from './store';
 
+/**
+ * Manager for handling history, contexts, and economy across sessions.
+ */
 export class HistoryManager {
   private sessions = new Map<string, SessionData>();
   private MAX_HISTORY = 100;
@@ -20,18 +23,18 @@ export class HistoryManager {
 
   // --- PERSISTENCE ---
 
-  private saveSession(key: string) {
+  private async saveSession(key: string) {
     const session = this.sessions.get(key);
     if (!session) return;
-    this.store.saveSession(key, session);
+    await this.store.saveSession(key, session);
   }
 
   // --- SESSION HELPERS ---
 
-  private getSession(key: string): SessionData {
+  private async getSession(key: string): Promise<SessionData> {
     if (this.sessions.has(key)) return this.sessions.get(key)!;
 
-    const loadedData = this.store.loadSession(key);
+    const loadedData = await this.store.loadSession(key);
     if (loadedData) {
       this.sessions.set(key, loadedData);
       return loadedData;
@@ -51,8 +54,8 @@ export class HistoryManager {
     return newSession;
   }
 
-  private getContext(key: string, contextKey: string): ContextData {
-    const session = this.getSession(key);
+  private async getContext(key: string, contextKey: string): Promise<ContextData> {
+    const session = await this.getSession(key);
     
     if (!session.contexts[contextKey]) {
       session.contexts[contextKey] = {
@@ -66,8 +69,13 @@ export class HistoryManager {
 
   // --- CREDIT & STATS LOGIC ---
 
-  checkDailyReset(key: string, isVIP: boolean) {
-    const session = this.getSession(key);
+  /**
+   * Checks and resets daily credits if a new day has started.
+   * @param key The user key.
+   * @param isVIP Whether the user is VIP for limit calculation.
+   */
+  async checkDailyReset(key: string, isVIP: boolean) {
+    const session = await this.getSession(key);
     const now = new Date();
     const last = new Date(session.lastDailyReset);
     const targetLimit = isVIP ? this.DAILY_LIMIT_VIP : this.DAILY_LIMIT_STANDARD;
@@ -77,21 +85,31 @@ export class HistoryManager {
         console.log(`🔄 Resetting credits for ${key} to ${targetLimit}`);
         session.dailyCredits = targetLimit;
         session.lastDailyReset = now.getTime();
-        this.saveSession(key);
+        await this.saveSession(key);
         return;
     }
   }
 
-  getBalance(key: string): number {
-    const session = this.getSession(key);
+  /**
+   * Gets the current balance of credits (daily + purchased).
+   * @param key The user key.
+   * @returns The total balance of the user.
+   */
+  async getBalance(key: string): Promise<number> {
+    const session = await this.getSession(key);
     return session.dailyCredits + session.purchasedCredits;
   }
 
-  // SMART DEDUCT: Returns a receipt of where credits came from
-  deductCredits(key: string, amount: number): DeductReceipt {
-    const session = this.getSession(key);
+  /**
+   * SMART DEDUCT: Returns a receipt of where credits came from
+   * @param key The user key.
+   * @param amount The amount of credits to deduct.
+   * @returns A receipt indicating the source of the deducted credits.
+   */
+  async deductCredits(key: string, amount: number): Promise<DeductReceipt> {
+    const session = await this.getSession(key);
     
-    if (this.getBalance(key) < amount) {
+    if (await this.getBalance(key) < amount) {
         return { success: false, dailyDeducted: 0, purchasedDeducted: 0 };
     }
 
@@ -113,13 +131,18 @@ export class HistoryManager {
         session.purchasedCredits -= purchasedDeducted;
     }
 
-    this.saveSession(key);
+    await this.saveSession(key);
     return { success: true, dailyDeducted, purchasedDeducted };
   }
 
-  // SMART REFUND: Puts credits back exactly where they came from
-  refundCredits(key: string, receipt: { daily: number, purchased: number }, type: 'text' | 'image') {
-    const session = this.getSession(key);
+  /**
+   * SMART REFUND: Puts credits back exactly where they came from
+   * @param key The user key.
+   * @param receipt The receipt of the deducted credits.
+   * @param type The type of the action ('text' or 'image').
+   */
+  async refundCredits(key: string, receipt: { daily: number, purchased: number }, type: 'text' | 'image') {
+    const session = await this.getSession(key);
     
     session.dailyCredits += receipt.daily;
     session.purchasedCredits += receipt.purchased;
@@ -131,49 +154,90 @@ export class HistoryManager {
     if (type === 'image') session.totalImagesGenerated = Math.max(0, session.totalImagesGenerated - 1);
 
     console.log(`Refunded: Daily=${receipt.daily}, Purchased=${receipt.purchased} to ${key}`);
-    this.saveSession(key);
+    await this.saveSession(key);
   }
 
   // Record Stats
-  recordUsage(key: string, cost: number, type: 'text' | 'image') {
-    const session = this.getSession(key);
+  /**
+   * Records the usage of credits for a specific action.
+   * @param key The user key.
+   * @param cost The cost in credits for the action.
+   * @param type The type of the action ('text' or 'image').
+   */
+  async recordUsage(key: string, cost: number, type: 'text' | 'image') {
+    const session = await this.getSession(key);
     session.totalCreditsUsed += cost;
     if (type === 'text') session.totalTextMessages += 1;
     if (type === 'image') session.totalImagesGenerated += 1;
-    this.saveSession(key);
+    await this.saveSession(key);
   }
 
-  getStats(key: string): SessionData {
-    return this.getSession(key);
+  /**
+   * Gets the stats of the user session.
+   * @param key The user key.
+   * @returns The session data including stats.
+   */
+  async getStats(key: string): Promise<SessionData> {
+    return await this.getSession(key);
   }
 
   // --- PUBLIC CONTEXT API ---
 
-  getHistory(key: string, contextKey: string): ChatMessage[] {
-    return this.getContext(key, contextKey).history;
+  /**
+   * Gets the message history of a specific context.
+   * @param key The user key.
+   * @param contextKey The context identifier.
+   * @returns The message history of the context.
+   */
+  async getHistory(key: string, contextKey: string): Promise<ChatMessage[]> {
+    return (await this.getContext(key, contextKey)).history;
   }
 
-  addMessage(key: string, contextKey: string, role: 'user' | 'assistant' | 'system', content: string) {
-    const ctx = this.getContext(key, contextKey);
+  /**
+   * Adds a message to the context history.
+   * @param key The user key.
+   * @param contextKey The context identifier.
+   * @param role The role of the message sender ('user' | 'assistant' | 'system').
+   * @param content The content of the message.
+   */
+  async addMessage(key: string, contextKey: string, role: 'user' | 'assistant' | 'system', content: string) {
+    const ctx = await this.getContext(key, contextKey);
     ctx.history.push({ role, content });
     if (ctx.history.length > this.MAX_HISTORY) ctx.history.shift(); 
-    this.saveSession(key);
+    await this.saveSession(key);
   }
 
-  clearHistory(key: string, contextKey: string) {
-    const ctx = this.getContext(key, contextKey);
+  /**
+   * Clears the message history of a specific context.
+   * @param key The user key.
+   * @param contextKey The context identifier.
+   */
+  async clearHistory(key: string, contextKey: string) {
+    const ctx = await this.getContext(key, contextKey);
     ctx.history = []; 
-    this.saveSession(key);
+    await this.saveSession(key);
   }
 
-  setPersonality(key: string, contextKey: string, personality: string) {
-    const ctx = this.getContext(key, contextKey);
+  /**
+   * Sets the personality prompt for a specific context.
+   * @param key The user key.
+   * @param contextKey The context identifier.
+   * @param personality The personality prompt text.
+   */
+  async setPersonality(key: string, contextKey: string, personality: string) {
+    const ctx = await this.getContext(key, contextKey);
     ctx.personality = personality || DEFAULT_SYSTEM_PROMPT;
-    this.saveSession(key);
+    await this.saveSession(key);
   }
 
-  getSystemPrompt(key: string, contextKey: string): string {
-    return this.getContext(key, contextKey).personality;
+  /**
+   * Gets the system prompt (personality) for a specific context.
+   * @param key The user key.
+   * @param contextKey The context identifier.
+   * @returns The personality prompt text.
+   */
+  async getSystemPrompt(key: string, contextKey: string): Promise<string> {
+    return (await this.getContext(key, contextKey)).personality;
   }
 }
 

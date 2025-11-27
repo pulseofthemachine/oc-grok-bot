@@ -23,7 +23,7 @@ export async function downloadAndResizeImage(imageUrl: string): Promise<Processe
 
     // 2. Resize with Sharp
     const resizedBuffer = await sharp(buffer)
-      .resize(1024, 559, { 
+      .resize(1408, 768, { 
         fit: 'inside',
         withoutEnlargement: true
       })

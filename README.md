@@ -138,3 +138,19 @@ The bot uses a file-based JSON database located in the `data/` directory.
     }
     ```
 *   **Backups:** To backup your user data, simply download the `data/` folder.
+
+## Troubleshooting
+- **Lock Errors**: Restart the server if file locks fail due to concurrency.
+- **Credit Issues**: Use `/credits`; daily reset at 00:00 UTC.
+- **Image Commands**: Now use original model images without resizing for speed.
+
+## Economy System
+- Standard users: 5 daily credits.
+- VIP (Diamond/Lifetime): 20 daily credits.
+- Costs: Text (1), Image (10).
+- Refunds on errors.
+
+## Recent Changes
+- Removed Sharp-based resizing for better performance in image generation.
+
+For code details, see JSDoc comments in files like `services/chat.ts` and `services/history/manager.ts`.
