@@ -6,3 +6,4 @@ oc_public.pem
 dist/
 data/
 .github/
+.gemini/
