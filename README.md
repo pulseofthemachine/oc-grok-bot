@@ -99,7 +99,7 @@ ngrok http 3000
 Thanks to the modular architecture, adding a new command is trivial.
 
 **1. Create a file:** `modules/commands/joke.ts`
-**2. Use an existing command as a template template (e.g. poem.ts)**
+**2. Use an existing command as a template** (e.g. poem.ts)
 **3. Restart the server.** Your new `/joke` command is now live!
 
 ---
