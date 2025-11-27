@@ -1,6 +1,3 @@
-import * as dotenv from 'dotenv';
-dotenv.config();
-
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string | Array<{ type: string, text?: string, image_url?: { url: string } }>;
@@ -10,7 +7,7 @@ export interface ChatOptions {
   model?: string;
   temperature?: number;
   reasoningEnabled?: boolean;
-  tools?: any[];
+  tools?: unknown[];
   modalities?: string[];
 }
 
@@ -37,7 +34,7 @@ export async function completeChat(
   // Sanity Check
   const cleanMessages = messages.filter(m => m && m.content);
 
-  const payload: any = {
+  const payload: Record<string, unknown> = {
     model,
     messages: cleanMessages,
     temperature: options.temperature ?? 0.7,

@@ -16,8 +16,7 @@ export const ImagineCommand: Command = {
   ],
   execute: async (ctx) => {
     // Cost: 10 Credits
-    const COST = 10;
-    if (!(await ctx.checkAndCharge(COST, 'image'))) return;
+    if (!(await ctx.checkAndCharge(10, 'image'))) return;
 
     const prompt = ctx.getString("prompt");
 
@@ -33,12 +32,15 @@ export const ImagineCommand: Command = {
 
         // 2. Handle Response
         if (Array.isArray(response) && response.length > 0) {
-            const imageObj = response[0] as any;
+            const imageObj = response[0] as Record<string, unknown>;
             let finalUrl: string | undefined;
 
-            if (imageObj.url) finalUrl = imageObj.url;
-            else if (imageObj.image_url?.url) finalUrl = imageObj.image_url.url;
-            else if (imageObj.b64_json) finalUrl = `data:image/png;base64,${imageObj.b64_json}`;
+            if (typeof imageObj.url === 'string') finalUrl = imageObj.url;
+            else if (imageObj.image_url && typeof (imageObj.image_url as any).url === 'string') {
+              finalUrl = (imageObj.image_url as any).url;
+            } else if (typeof imageObj.b64_json === 'string') {
+              finalUrl = `data:image/png;base64,${imageObj.b64_json}`;
+            }
 
             if (!finalUrl) {
                 throw new Error("AI generated an image, but the URL format was unrecognized.");

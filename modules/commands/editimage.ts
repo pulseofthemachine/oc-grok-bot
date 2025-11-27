@@ -23,10 +23,8 @@ export const EditImageCommand: Command = {
     }
   ],
   execute: async (ctx) => {
-if (!(await ctx.checkAndCharge(10, 'image'))) return;
     // Cost: 10 Credits
-    const COST = 10;
-    if (!(await ctx.checkAndCharge(COST, 'image'))) return;
+    if (!(await ctx.checkAndCharge(10, 'image'))) return;
 
     const url = ctx.getString("image_url");
     const prompt = ctx.getString("prompt");

@@ -4,8 +4,8 @@ import { BotContext } from './context';
 export interface Command {
   name: string;
   description: string;
-  permissions: any;
-  params: any[];
+  permissions: unknown;
+  params: unknown[];
   execute: (ctx: BotContext) => Promise<void>;
   
   // New Optional Field

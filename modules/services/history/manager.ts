@@ -14,9 +14,7 @@ export class HistoryManager {
   private store: HistoryStore;
 
   constructor() {
-    // Fix pathing to ensure it works regardless of CWD
-    // From: modules/services/history/manager.ts -> ../../../data
-    const dataDir = path.join(__dirname, '../../../data');
+    const dataDir = path.join(process.cwd(), 'data');
     this.store = new HistoryStore(dataDir, this.DAILY_LIMIT_STANDARD);
   }
 

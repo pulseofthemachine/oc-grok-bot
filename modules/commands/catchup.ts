@@ -44,9 +44,9 @@ ${chatLogs}
         `.trim();
 
         // --- DEBUG: SHOW EXACTLY WHAT IS SENT ---
-        console.log("\n┌────────────── CATCHUP PROMPT ──────────────┐");
-        console.log(prompt);
-        console.log("└────────────────────────────────────────────┘\n");
+        //console.log("\n┌────────────── CATCHUP PROMPT ──────────────┐");
+        //console.log(prompt);
+        //console.log("└────────────────────────────────────────────┘\n");
         // ----------------------------------------
 
         // 4. Call AI

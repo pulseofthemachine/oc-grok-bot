@@ -3,15 +3,25 @@ import { BotClientFactory } from '@open-ic/openchat-botclient-ts';
 
 dotenv.config();
 
-const identityPrivateKey = process.env.IDENTITY_PRIVATE;
-const openChatPublicKey = process.env.OC_PUBLIC;
+const requiredEnv = [
+  'OPENROUTER_API_KEY',
+  'IC_HOST',
+  'STORAGE_INDEX_CANISTER',
+  'IDENTITY_PRIVATE',
+  'OC_PUBLIC'
+];
 
-// Validation check
-if (!identityPrivateKey || !openChatPublicKey) {
-  console.error("CRITICAL ERROR: Missing IDENTITY_PRIVATE or OC_PUBLIC in .env file.");
-  process.exit(1);
+for (const key of requiredEnv) {
+  if (!process.env[key]) {
+    console.error(`CRITICAL ERROR: Missing required env var: ${key}`);
+    process.exit(1);
+  }
 }
 
+const identityPrivateKey = process.env.IDENTITY_PRIVATE!;
+const openChatPublicKey = process.env.OC_PUBLIC!;
+
+// Validation check (legacy)
 export const botFactory = new BotClientFactory({
   openchatPublicKey: openChatPublicKey,
   icHost: process.env.IC_HOST!,

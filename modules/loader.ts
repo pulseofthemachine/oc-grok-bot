@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { CommandRegistry } from './core/registry';
+import { CommandRegistry, Command } from './core/registry';
 
 export async function loadCommands(registry: CommandRegistry) {
   const commandsDir = path.join(__dirname, 'commands');
@@ -18,11 +18,18 @@ export async function loadCommands(registry: CommandRegistry) {
       const modulePath = path.join(commandsDir, file);
       const module = await import(modulePath);
       
-      // Look for the export (Default or Named)
-      // Expectation: export const CommandName = { ... }
-      const commandObj = Object.values(module)[0] as any;
+      // Type-safe lookup for Command export
+      const commandCandidates = Object.values(module) as unknown[];
+      const commandObj = commandCandidates.find((exp): exp is Command => 
+        exp != null &&
+        typeof exp === 'object' &&
+        'name' in exp &&
+        typeof (exp as any).name === 'string' &&
+        'execute' in exp &&
+        typeof (exp as any).execute === 'function'
+      );
 
-      if (commandObj && commandObj.name && commandObj.execute) {
+      if (commandObj) {
         registry.register(commandObj);
         console.log(`✅ Loaded command: /${commandObj.name}`);
       }

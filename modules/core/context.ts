@@ -1,12 +1,12 @@
 import { Request, Response } from 'express';
-import { BotClientFactory } from '@open-ic/openchat-botclient-ts';
+import type { BotClientFactory, BotClient } from '@open-ic/openchat-botclient-ts';
 import { EconomyManager } from '../services/economy';
 import { chatWithAI } from '../services/chat';
 import { reply, replyWithImage } from '../utils/reply-helpers';
 import { fetchRecentMessages } from '../utils/chatlog-fetcher';
 
 export class BotContext {
-  public client: any;
+  public client: BotClient;
   public userId: string;
   
   public username: string = "Unknown";
@@ -17,10 +17,9 @@ export class BotContext {
   public isGroup: boolean;
   public token: string;
   public commandName: string;
-  private res: Response;
+  public res: Response;
   public economy: EconomyManager;
 
-  // Track transaction for smart refunds
   public lastTransaction: { daily: number, purchased: number } | null = null;
 
   constructor(req: Request, res: Response, factory: BotClientFactory) {
@@ -30,8 +29,16 @@ export class BotContext {
     this.token = token;
     this.client = factory.createClientFromCommandJwt(token);
 
-    const base64Payload = token.split('.')[1];
-    const payload = JSON.parse(Buffer.from(base64Payload, 'base64').toString());
+    let base64Payload = token.split('.')[1];
+    while (base64Payload.length % 4) {
+      base64Payload += '=';
+    }
+    let payload;
+    try {
+      payload = JSON.parse(Buffer.from(base64Payload, 'base64').toString());
+    } catch (e) {
+      throw new Error('Invalid JWT token');
+    }
     
     this.userId = payload.command?.initiator || "Unknown";
     this.commandName = payload.command?.name;
@@ -74,8 +81,6 @@ export class BotContext {
     return val;
   }
 
-  // --- ECONOMY ---
-
   async checkAndCharge(cost: number, type: 'text' | 'image' = 'text'): Promise<boolean> {
     return this.economy.checkAndCharge(cost, type);
   }
@@ -84,8 +89,6 @@ export class BotContext {
     return this.economy.refund(type);
   }
 
-  // --- CHAT LOGIC ---
-
   async chatWithAI(options: {
     contextKey: string;
     userPrompt: string;
@@ -93,12 +96,10 @@ export class BotContext {
     model?: string;
     temperature?: number;
     reasoningEnabled?: boolean;
-    tools?: any[];
+    tools?: unknown[];
   }) {
     return chatWithAI(this, options);
   }
-
-  // --- REPLY HELPERS ---
 
   async reply(text: string) {
     return reply(this, text);
@@ -107,8 +108,6 @@ export class BotContext {
   async replyWithImage(imageUrl: string, caption?: string) {
     return replyWithImage(this, imageUrl, caption);
   }
-
-  // --- CHATLOG FETCHING ---
 
   async fetchRecentMessages(limit: number = 50): Promise<string | null> {
     return fetchRecentMessages(this, limit);
