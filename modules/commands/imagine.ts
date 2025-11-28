@@ -1,6 +1,6 @@
 import { Command } from '../core/registry';
 import { Permissions } from '@open-ic/openchat-botclient-ts';
-import { completeChat, ImageResponse } from '../adapters/openrouter';
+import { completeChat } from '../adapters/openrouter';
 
 export const ImagineCommand: Command = {
   name: "imagine",

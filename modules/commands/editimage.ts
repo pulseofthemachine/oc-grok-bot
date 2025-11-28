@@ -1,8 +1,7 @@
 import { Command } from '../core/registry';
 import { Permissions } from '@open-ic/openchat-botclient-ts';
 import { validateImageUrl } from '../utils/url-validator';
-import { completeChat, ImageResponse } from '../adapters/openrouter';
-import { BOT_ADMIN_ID } from '../core/config';
+import { completeChat } from '../adapters/openrouter';
 
 export const EditImageCommand: Command = {
   name: "editimage",

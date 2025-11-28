@@ -1,5 +1,4 @@
 import { BotContext } from '../core/context';
-import type { BotClient } from '@open-ic/openchat-botclient-ts';
 
 export async function fetchRecentMessages(ctx: BotContext, limit: number = 50): Promise<string | null> {
   try {

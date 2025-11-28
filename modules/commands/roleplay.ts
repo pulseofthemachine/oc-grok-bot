@@ -1,4 +1,3 @@
-
 import { Command } from '../core/registry';
 import { Permissions } from '@open-ic/openchat-botclient-ts';
 
