@@ -53,7 +53,7 @@ ${chatLogs}
         const response = await completeChat([
             { role: 'user', content: prompt }
         ], {
-            model: "x-ai/grok-4.1-fast:free", 
+            model: "x-ai/grok-4.1-fast", 
             temperature: 0.5
         });
 

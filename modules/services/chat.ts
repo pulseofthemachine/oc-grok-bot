@@ -56,7 +56,7 @@ export async function chatWithAI(
 [AI Request] User: ${ctx.displayName} (${ctx.membershipTier}) | Prompt: ${userPrompt.substring(0, 50)}...`);
 
     const response = await completeChat(contextMessages, {
-      model: model || "x-ai/grok-4.1-fast:free",
+      model: model || "x-ai/grok-4.1-fast",
       temperature: temperature || 0.7,
       reasoningEnabled: reasoningEnabled,
       tools: tools

@@ -43,9 +43,9 @@ export class HistoryManager {
     // New User Default State
     const newSession: SessionData = { 
       contexts: {},
-      dailyCredits: this.DAILY_LIMIT_STANDARD,
+      dailyCredits: 0,
       purchasedCredits: 0,
-      lastDailyReset: Date.now(),
+      lastDailyReset: 0,
       totalCreditsUsed: 0,
       totalTextMessages: 0,
       totalImagesGenerated: 0
@@ -80,8 +80,8 @@ export class HistoryManager {
     const last = new Date(session.lastDailyReset);
     const targetLimit = isVIP ? this.DAILY_LIMIT_VIP : this.DAILY_LIMIT_STANDARD;
 
-    // 1. Date Changed? Reset fully.
-    if (now.getUTCDate() !== last.getUTCDate() || now.getUTCMonth() !== last.getUTCMonth()) {
+    // 1. Date Changed or New User? Reset fully.
+    if (session.lastDailyReset === 0 || now.getUTCDate() !== last.getUTCDate() || now.getUTCMonth() !== last.getUTCMonth()) {
         console.log(`🔄 Resetting credits for ${key} to ${targetLimit}`);
         session.dailyCredits = targetLimit;
         session.lastDailyReset = now.getTime();

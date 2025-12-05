@@ -27,6 +27,15 @@ export class HistoryStore {
    */
   async saveSession(key: string, session: SessionData) {
     const filePath = path.join(this.DATA_DIR, `${key}.json`);
+
+    // Ensure file exists
+    try {
+      await fs.access(filePath);
+    } catch (e) {
+      // File doesn't exist, create it
+      await fs.writeFile(filePath, '{}', 'utf8');
+    }
+
     let release;
     try {
       release = await lockfile.lock(filePath, { retries: { retries: 5, minTimeout: 10 } });
